@@ -2,6 +2,8 @@
 
 ## 0.3.1 — 2026-08-19
 
+Public **beta**: documented as under test; not production-certified.
+
 ### Update / backups
 
 - `scripts/update.sh` asks (TTY) whether to dump **all** databases before replacing files

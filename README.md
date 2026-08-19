@@ -1,11 +1,11 @@
 # DirectAdmin PostgreSQL plugin (PHP 8.2–8.5)
 
-Fork of [shvaber/da-postgresql](https://github.com/shvaber/da-postgresql) (Poralix) maintained at
+Fork of [shvaber/da-postgresql](https://github.com/shvaber/da-postgresql) (Poralix), maintained at
 [OpenIaaS/da-postgresql](https://github.com/OpenIaaS/da-postgresql).
 
-Version **0.3.1** targets **PHP 8.2 / 8.3 / 8.4 / 8.5**, DirectAdmin Evolution, and PostgreSQL 14+.
+**Status: public beta.** Version **0.3.1** is under active validation on DirectAdmin with PHP 8.2–8.5 and PostgreSQL 14+. Interfaces, install paths, and backup behaviour are in place, but the release is **not yet production-certified**. Run it first on a staging server (or a snapshot of production), take a PostgreSQL dump before upgrading, and treat findings as part of the test cycle. Please report issues on the GitHub tracker.
 
-phpPgAdmin is installed from the actively maintained community fork
+phpPgAdmin is installed from the maintained community fork
 [ReimuHakurei/phpPgAdmin](https://github.com/ReimuHakurei/phpPgAdmin) (`v7.14.8-mod`), not the abandoned upstream 7.13 tree.
 
 ## Requirements
