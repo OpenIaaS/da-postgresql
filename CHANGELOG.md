@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.1 — 2026-08-19
+
+### Update / backups
+
+- `scripts/update.sh` asks (TTY) whether to dump **all** databases before replacing files
+- Non-interactive DirectAdmin GUI update dumps automatically (`--skip-backup` to opt out)
+- Dumps land in `/usr/local/directadmin/custombuild/custom/postgresql-backups/<timestamp>/` (custom format + `.sql.gz`, roles, SHA256; last 7 kept)
+- `scripts/setup/backup_all.sh` for the same dump outside of an update
+- `--from-github` pulls/rsyncs from this repo
+- **Does not rotate** the `diradmin` password on update (`create_admin.sh --keep-password`)
+- Preserves `pgpass.conf`, phpPgAdmin `config.inc.php`, and SSO files
+- Aborts if the dump fails unless `--force`
+
+### PHP 8.5
+
+- Documented and supported alongside 8.2 / 8.3 / 8.4
+- Removed `disable_classes` from plugin `php.ini` (INI setting removed in PHP 8.5)
+- Update script prints a PHP CLI version warning outside 8.2–8.5
+
 ## 0.3.0 — 2026-08-19
 
 PHP 8.2 / 8.3 / 8.4 fork maintained by OpenIaaS.

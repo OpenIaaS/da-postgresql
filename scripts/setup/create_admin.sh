@@ -22,6 +22,9 @@ do
         --debug)
             DEBUG=1;
         ;;
+        --keep-password)
+            KEEP_PASSWORD=1;
+        ;;
     esac;
 done;
 
@@ -68,6 +71,7 @@ PHP_TEST_TRG_FILE="/usr/local/directadmin/plugins/postgresql/exec/test_php.php";
 ######################################################################################
 
 UPDATE_PASSWORD=0;
+KEEP_PASSWORD="${KEEP_PASSWORD:-0}";
 
 # FIRST CHECK
 c=$(${PSQL_BIN} -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PSQL_ADMIN}'" 2>&1 | grep -c 1);
@@ -87,10 +91,16 @@ then
         UPDATE_PASSWORD=1;
     fi;
 else
-    echo "[WARNING] USER ROLE ${PSQL_ADMIN} ALREADY EXISTS!";
-    echo "[WARNING] Changing password for ${PSQL_ADMIN} to '${PSQL_PASS}'!";
-    ${PSQL_BIN} -c "ALTER ROLE ${PSQL_ADMIN} WITH PASSWORD '${PSQL_PASS}';";
-    [ "0" == "$?" ] && UPDATE_PASSWORD=1;
+    echo "[OK] USER ROLE ${PSQL_ADMIN} ALREADY EXISTS.";
+    if [ "1" == "${KEEP_PASSWORD}" ];
+    then
+        echo "[OK] Keeping existing ${PSQL_ADMIN} password (--keep-password).";
+        UPDATE_PASSWORD=0;
+    else
+        echo "[WARNING] Changing password for ${PSQL_ADMIN}!";
+        ${PSQL_BIN} -c "ALTER ROLE ${PSQL_ADMIN} WITH PASSWORD '${PSQL_PASS}';";
+        [ "0" == "$?" ] && UPDATE_PASSWORD=1;
+    fi;
     ${PSQL_BIN} -tc "SELECT 1 FROM pg_database WHERE datname = '${PSQL_ADMIN_DB}'" | grep -q 1 || ${PSQL_BIN} -c "CREATE DATABASE ${PSQL_ADMIN_DB};" | de;
 fi;
 

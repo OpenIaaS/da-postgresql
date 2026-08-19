@@ -2,7 +2,7 @@
 ######################################################################################
 #
 #   Postgresql integration for DirectAdmin $ 0.3.0
-#   PHP 8.2 / 8.3 / 8.4 — community phpPgAdmin, backups, cron, hardening
+#   PHP 8.2 / 8.3 / 8.4 / 8.5 — community phpPgAdmin, backups, cron, hardening
 #
 ######################################################################################
 
@@ -89,14 +89,19 @@ if [ -x "${PLUGIN_DIR}/scripts/setup/custom_quotas.sh" ]; then
 fi
 
 # Create plugin superuser (diradmin) when PostgreSQL is already installed
+# On updates (DA_PG_UPDATE_MODE=1) never rotate the existing password.
 if command -v psql >/dev/null 2>&1 || [ -x /usr/bin/psql ] || [ -x /usr/local/bin/psql ]; then
     if [ -x "${PLUGIN_DIR}/scripts/setup/create_admin.sh" ]; then
-        "${PLUGIN_DIR}/scripts/setup/create_admin.sh" --strict || true
+        if [ "${DA_PG_UPDATE_MODE:-0}" = "1" ]; then
+            "${PLUGIN_DIR}/scripts/setup/create_admin.sh" --strict --keep-password || true
+        else
+            "${PLUGIN_DIR}/scripts/setup/create_admin.sh" --strict || true
+        fi
     fi
     if [ -x "${PLUGIN_DIR}/scripts/setup/phppgadmin.sh" ]; then
         "${PLUGIN_DIR}/scripts/setup/phppgadmin.sh" || true
     fi
-    if [ -x "${PLUGIN_DIR}/exec/restrict_access_dbs.sh" ]; then
+    if [ "${DA_PG_UPDATE_MODE:-0}" != "1" ] && [ -x "${PLUGIN_DIR}/exec/restrict_access_dbs.sh" ]; then
         "${PLUGIN_DIR}/exec/restrict_access_dbs.sh" --run || true
     fi
 else
@@ -113,8 +118,8 @@ PL_CONF="${PLUGIN_DIR}/plugin.conf";
 perl -pi -e "s#^active=.*#active=yes#" ${PL_CONF};
 perl -pi -e "s#^installed=.*#installed=yes#" ${PL_CONF};
 
-echo "Plugin 0.3.0 has been installed and activated.<br>";
-echo "phpPgAdmin uses the community fork (ReimuHakurei, PHP 8).<br>";
+echo "Plugin 0.3.1 has been installed and activated.<br>";
+echo "phpPgAdmin uses the community fork (ReimuHakurei, PHP 8.2–8.5).<br>";
 echo "User backup/restore hooks and a daily update cron are enabled.<br>";
 echo "Re-save User Packages (including admin) to set PostgreSQL database limits.";
 exit 0;

@@ -1,4 +1,6 @@
-# Security notes (plugin 0.3.0)
+# Security notes (plugin 0.3.1)
+
+Supported PHP: **8.2, 8.3, 8.4, 8.5**.
 
 ## Restore as a non-superuser
 
@@ -10,24 +12,27 @@ When importing backups as a user, attempts to change a password or gain higher p
 
 Do **not** restore user-uploaded dumps as the `diradmin` superuser unless you trust the file. The UI restore uses the customer's DB user.
 
-## Hardening in 0.3.0
+## Hardening
 
 - Identifiers validated (`^[A-Za-z_][A-Za-z0-9_]*$`) and passed through `pg_escape_identifier` / `pg_escape_literal`
 - `CREATE DATABASE` no longer `GRANT CONNECT … TO PUBLIC`
 - Customer roles: `NOSUPERUSER NOCREATEDB NOCREATEROLE`
-- `restrict_access_dbs.sh --run` revokes PUBLIC on `template1` and existing DBs
+- `restrict_access_dbs.sh --run` revokes PUBLIC on `template1` and existing DBs (first install only; skipped on update)
 - phpPgAdmin: `extra_login_security=true`, `owned_only=true`, `extra_session_security=true`, min password 12
 - SSO cookies: HttpOnly, SameSite=Lax, 12h TTL, `hash_equals` token check
-- DirectAdmin session parser now reads the **value** after `username=` / `passwd=` (0.2.1 used `substr(..., 0, len)` and captured the key name)
+- DirectAdmin session parser reads the **value** after `username=` / `passwd=`
 - Upload helper stays setuid `root:diradmin` 4550; restore temp files 0600
 - Daily cron only updates phpPgAdmin from the pinned GitHub fork (https)
-- Plugin PHP: `disable_functions` still blocks `passthru` / `shell_exec` / `proc_open` in `php.ini` used by phpPgAdmin
+- Plugin `php.ini`: `disable_functions` still blocks `passthru` / `shell_exec` / `proc_open`; `disable_classes` is unset (removed in PHP 8.5)
+- `update.sh` does **not** rotate the plugin superuser password
+- Full-cluster dumps (`roles.sql`) are `0600` under CustomBuild `custom/postgresql-backups/`
 
 ## Credentials
 
 - `/usr/local/directadmin/plugins/postgresql/pgpass.conf` — plugin superuser, mode 0600
 - `/usr/local/directadmin/.pgpass` — same, for CLI
 - `data/sso/user.*.pgpass.conf` — per-user SSO, mode 0600
+- CustomBuild dumps include role passwords — treat the directory as secret
 - Never commit these files; they are in `.gitignore`
 
 ## Auth model

@@ -18,7 +18,7 @@
 if (!defined('IN_DA_PLUGIN') || (IN_DA_PLUGIN !==true)){die("You're not allowed to view this page!");}
 
 define("PLUGIN_NAME",        "PostgreSQL Manager for Directadmin");
-define("PLUGIN_VERSION",     "0.3.0");
+define("PLUGIN_VERSION",     "0.3.1");
 define("PLUGIN_DIR",         "/usr/local/directadmin/plugins/postgresql");
 define("PLUGIN_PGCONF_FILE", "/usr/local/directadmin/plugins/postgresql/pgpass.conf");
 define("PLUGIN_IMAGES_DIR",  "/usr/local/directadmin/plugins/postgresql/images");

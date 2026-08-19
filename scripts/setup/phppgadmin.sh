@@ -63,18 +63,22 @@ fi
 
 echo "[OK] Writing hardened phpPgAdmin config"
 mkdir -p "$(dirname "${CONF_FILE}")"
-cp -p "${CONF_DIST}" "${CONF_FILE}"
-# Prefer real pg_dump path
-for DUMP in /usr/pgsql-*/bin/pg_dump /usr/bin/pg_dump /usr/local/bin/pg_dump; do
-    if [ -x "${DUMP}" ]; then
-        DUMPALL="$(dirname "${DUMP}")/pg_dumpall"
-        perl -pi -e "s#/usr/bin/pg_dump#${DUMP}#g" "${CONF_FILE}"
-        if [ -x "${DUMPALL}" ]; then
-            perl -pi -e "s#/usr/bin/pg_dumpall#${DUMPALL}#g" "${CONF_FILE}"
+if [ "${DA_PG_KEEP_PPA_CONF:-0}" = "1" ] && [ -f "${CONF_FILE}" ]; then
+    echo "[OK] Keeping existing ${CONF_FILE} (DA_PG_KEEP_PPA_CONF=1)"
+else
+    cp -p "${CONF_DIST}" "${CONF_FILE}"
+    # Prefer real pg_dump path
+    for DUMP in /usr/pgsql-*/bin/pg_dump /usr/bin/pg_dump /usr/local/bin/pg_dump; do
+        if [ -x "${DUMP}" ]; then
+            DUMPALL="$(dirname "${DUMP}")/pg_dumpall"
+            perl -pi -e "s#/usr/bin/pg_dump#${DUMP}#g" "${CONF_FILE}"
+            if [ -x "${DUMPALL}" ]; then
+                perl -pi -e "s#/usr/bin/pg_dumpall#${DUMPALL}#g" "${CONF_FILE}"
+            fi
+            break
         fi
-        break
-    fi
-done
+    done
+fi
 chmod 640 "${CONF_FILE}"
 chown webapps:webapps "${CONF_FILE}"
 
