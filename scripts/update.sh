@@ -1,20 +1,26 @@
 #!/bin/bash
 ######################################################################################
 #
-#   Postgresql integration for DirectAdmin $ 0.2
-#   ==============================================================================
-#          Last modified: Mon Feb 10 12:44:48 +07 2020
-#   ==============================================================================
-#         Written by Alex Grebenschikov, Poralix, www.poralix.com
-#         Copyright 2022 by Alex Grebenschikov, Poralix, www.poralix.com
-#   ==============================================================================
-#         Distributed under Apache License Version 2.0, January 2004
-#                                          http://www.apache.org/licenses/
+#   Postgresql integration for DirectAdmin $ 0.3.0
 #
 ######################################################################################
 
-/usr/local/directadmin/plugins/postgresql/scripts/uninstall.sh >/dev/null 2>&1;
-/usr/local/directadmin/plugins/postgresql/scripts/install.sh >/dev/null 2>&1;
+PLUGIN_DIR="/usr/local/directadmin/plugins/postgresql"
+# Preserve superuser credentials across updates
+TMP_PGPASS=""
+if [ -f "${PLUGIN_DIR}/pgpass.conf" ]; then
+    TMP_PGPASS=$(mktemp /tmp/da-postgresql.pgpass.XXXXXX)
+    cp -p "${PLUGIN_DIR}/pgpass.conf" "${TMP_PGPASS}"
+fi
 
-echo "Plugin has been updated!";
+"${PLUGIN_DIR}/scripts/install.sh"
+
+if [ -n "${TMP_PGPASS}" ] && [ -f "${TMP_PGPASS}" ]; then
+    cp -p "${TMP_PGPASS}" "${PLUGIN_DIR}/pgpass.conf"
+    chmod 600 "${PLUGIN_DIR}/pgpass.conf"
+    chown diradmin:diradmin "${PLUGIN_DIR}/pgpass.conf" 2>/dev/null || true
+    rm -f "${TMP_PGPASS}"
+fi
+
+echo "Plugin has been updated to 0.3.0!";
 exit 0;

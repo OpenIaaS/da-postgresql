@@ -75,6 +75,6 @@ do_backup()
     fi;
 }
 
-do_backup > ${LOG_DIR}/backup.user.${USERNAME}.$(date +%Y%m%d.%s).log 2>&1;
+do_backup > "${LOG_DIR}/backup.user.${USERNAME}.$(date +%Y%m%d.%s).log" 2>&1;
 
 exit 0;

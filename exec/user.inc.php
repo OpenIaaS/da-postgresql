@@ -1,11 +1,13 @@
 <?php
 ######################################################################################
 #
-#   Postgresql integration for DirectAdmin $ 0.2
+#   Postgresql integration for DirectAdmin $ 0.3.0
 #   ==============================================================================
-#          Last modified: Mon Feb 10 12:44:48 +07 2020
+#          PHP 8.2 / 8.3 / 8.4 compatible fork
+#          Based on Poralix da-postgresql 0.2.1
 #   ==============================================================================
 #         Written by Alex Grebenschikov, Poralix, www.poralix.com
+#         Maintained by OpenIaaS (https://github.com/OpenIaaS/da-postgresql)
 #         Copyright 2022 by Alex Grebenschikov, Poralix, www.poralix.com
 #   ==============================================================================
 #         Distributed under Apache License Version 2.0, January 2004
@@ -33,14 +35,12 @@ else if ( defined('IN_RAW_OUTPUT') && (IN_RAW_OUTPUT == true))
     print "Cache-Control: no-cache, must-revalidate\n";
     define('FILE_TYPE', 'raw');
     $append_go_back_link_on_error = true;
-    // ALL THE OTHER HEADERS WILL BE SENT LATER
 }
 else if ( defined('IN_DOWNLOAD_OUTPUT') && (IN_DOWNLOAD_OUTPUT == true))
 {
     print "HTTP/1.1 200 OK\n";
     define('FILE_TYPE', 'raw');
     $append_go_back_link_on_error = false;
-    // ALL THE OTHER HEADERS WILL BE SENT LATER
 }
 else
 {
@@ -59,7 +59,7 @@ if  (is_file(PLUGIN_EXEC_DIR . '/settings.local.inc.php')) {require_once(PLUGIN_
 require_once(PLUGIN_EXEC_DIR . '/settings.inc.php');
 
 parse_input();
-_get_pg_credentials();
+$have_pg_creds = _get_pg_credentials();
 
 $is_error = false;
 $message_ok = false;
@@ -80,14 +80,20 @@ $pg = new postgresql([
     'dbname' => false,
 ]);
 
-// PROCESS ACTION
 $action_file = sprintf("%s/%s/%s.php", PLUGIN_ACTION_DIR, FILE_TYPE, basename(PLUGIN_ACTION));
 
 $PGSQL_USER_LIMIT = $da->get_user_data('postgresql');
-$PGSQL_USER_USAGE = $pg->getDatabasesCount($USER);
-$PGSQL_USER_USAGE_SIZE = $pg->getDatabasesSize($USER);
+$PGSQL_USER_USAGE = $have_pg_creds ? $pg->getDatabasesCount($USER) : 0;
+$PGSQL_USER_USAGE_SIZE = $have_pg_creds ? $pg->getDatabasesSize($USER) : '0 bytes';
 
-if (is_null($PGSQL_USER_LIMIT) || ($PGSQL_USER_LIMIT == 0) || !$PGSQL_USER_LIMIT)
+if (!$have_pg_creds)
+{
+    $is_error = true;
+    $error_message = $da->get_lang('ERROR_MESSAGE_FAILED_PHPPGADMIN');
+    $error_details = $da->get_lang('PLUGIN_ADMIN_PG_CONNECTED_ERROR');
+    $action_file = sprintf("%s/%s/%s.php", PLUGIN_ACTION_DIR, FILE_TYPE, 'error');
+}
+else if (is_null($PGSQL_USER_LIMIT) || (intval($PGSQL_USER_LIMIT) == 0))
 {
     $is_error = true;
     $error_message = $da->get_lang('ERROR_MESSAGE_PGSQL_NOT_ALLOWED');
@@ -108,9 +114,6 @@ else
     }
 }
 
-// HTML pages should not go here
-// This case is expected to be for JSON
-// to avoid duplicating lines of code
 if ($is_error == true)
 {
     $append_go_back_link = $append_go_back_link_on_error ?  $da->get_lang('PLUGIN_GO_BACK_LINK') : '';
@@ -134,7 +137,7 @@ if ($is_error == true)
     if (defined('IN_RAW_OUTPUT') && (IN_RAW_OUTPUT == true))
     {
         $FINAL_CONTENT = _get_tpl(PLUGIN_TPL_BODY, [
-            'LANG'  => strtolower($_SERVER["LANGUAGE"]),
+            'LANG'  => plugin_da_language(),
             'TITLE' => PLUGIN_NAME,
             'BODY'  => $FINAL_CONTENT
         ]);

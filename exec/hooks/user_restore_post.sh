@@ -29,7 +29,7 @@ do_restore()
     if [ -n "${USERNAME}" ] && [ -n "${FILE}" ] && [ -f "${FILE}" ];
     then
     {
-        "${SCRIPT}" "${USERNAME}" "${FILE}" > ${LOG_DIR}/restore.user.${USERNAME}.$(date +%Y%m%d.%s).log 2>&1;
+        "${SCRIPT}" "${USERNAME}" "${FILE}" > "${LOG_DIR}/restore.user.${USERNAME}.$(date +%Y%m%d.%s).log" 2>&1;
     }
     else
     {

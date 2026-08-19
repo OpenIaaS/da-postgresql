@@ -1,11 +1,13 @@
 <?php
 ######################################################################################
 #
-#   Postgresql integration for DirectAdmin $ 0.2
+#   Postgresql integration for DirectAdmin $ 0.3.0
 #   ==============================================================================
-#          Last modified: Mon Feb 10 12:44:48 +07 2020
+#          PHP 8.2 / 8.3 / 8.4 compatible fork
+#          Based on Poralix da-postgresql 0.2.1
 #   ==============================================================================
 #         Written by Alex Grebenschikov, Poralix, www.poralix.com
+#         Maintained by OpenIaaS (https://github.com/OpenIaaS/da-postgresql)
 #         Copyright 2022 by Alex Grebenschikov, Poralix, www.poralix.com
 #   ==============================================================================
 #         Distributed under Apache License Version 2.0, January 2004
@@ -18,6 +20,8 @@ $is_error = true;
 $database = (isset($_GET['database']) && $_GET['database']) ? $_GET['database'] : false;
 $databases = array();
 $dbowner = false;
+$session_username = false;
+$session_password = false;
 
 if ($pg_user_databases = $pg->getDatabasesList($USER))
 {
@@ -29,7 +33,7 @@ if ($pg_user_databases = $pg->getDatabasesList($USER))
             $dbowner = ($database == $row['name']) ? $row['owner'] : $dbowner;
         }
     }
-    $database = ($database === false) ? $databases[0] : $database;
+    $database = ($database === false && isset($databases[0])) ? $databases[0] : $database;
     if (!in_array($database, $databases))
     {
         print "Cache-Control: no-cache, must-revalidate\n";
@@ -44,8 +48,8 @@ if ($pg_user_databases = $pg->getDatabasesList($USER))
 }
 
 
-$PHPPGADMIN_URL = 'https://'. $_SERVER['SERVER_NAME'] .'/phppgadmin/';
-$PHPPGADMIN_LOGIN_URL = $PHPPGADMIN_URL .'index.php?nc=0.'.uniqid(time());
+$PHPPGADMIN_URL = 'https://'. (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '') .'/phppgadmin/';
+$PHPPGADMIN_LOGIN_URL = $PHPPGADMIN_URL .'index.php?nc=0.'.uniqid((string)time(), true);
 $PHPPGADMIN_LOGIN_SERVER = PG_HOST . ':'.PG_PORT.':allow';
 $TPL_DATA = [
         'FORM_ACTION'    => $PHPPGADMIN_LOGIN_URL,
@@ -60,13 +64,12 @@ $TPL_DATA = [
 
 $sso_config_file = PLUGIN_SSO_DIR . '/user.'. $USER .'.pgpass.conf';
 
-// DO WE HAVE AN USER CONFIG FOR PSQL
 if (is_file($sso_config_file))
 {
     $sso_pgconf = _get_pg_user_credentials($sso_config_file);
     if (isset($sso_pgconf['dbuser']) && $sso_pgconf['dbuser']) $TPL_DATA['LOGIN_USERNAME'] = $session_username = $sso_pgconf['dbuser'];
     if (isset($sso_pgconf['dbpass']) && $sso_pgconf['dbpass']) $TPL_DATA['LOGIN_PASSWORD'] = $session_password = $sso_pgconf['dbpass'];
-    if (!$session_username || !$session_password) 
+    if (!$session_username || !$session_password)
     {
         $is_error = true;
         $error_code = "PHPPGADMIN_110";
@@ -79,16 +82,17 @@ if (is_file($sso_config_file))
 else
 {
     $da_sess_data = array();
-    $da_sess_file = '/usr/local/directadmin/data/sessions/da_sess_'. $_SERVER['SESSION_ID'];
-    if (is_file($da_sess_file) && ($_da_sess_data = file_get_contents($da_sess_file)))
+    $sess_id = isset($_SERVER['SESSION_ID']) ? preg_replace('/[^A-Za-z0-9._-]/', '', (string)$_SERVER['SESSION_ID']) : '';
+    $da_sess_file = '/usr/local/directadmin/data/sessions/da_sess_'. $sess_id;
+    if ($sess_id && is_file($da_sess_file) && ($_da_sess_data = file_get_contents($da_sess_file)))
     {
         $da_sess_data = [];
         if ($lines = explode("\n",$_da_sess_data))
         {
             foreach ($lines as $row)
             {
-                if (strpos($row, "username=") === 0) $da_sess_data['username'] = substr($row, 0, strlen("username="));
-                if (strpos($row, "passwd=") === 0) $da_sess_data['passwd'] = substr($row, 0, strlen("passwd="));
+                if (strpos($row, "username=") === 0) $da_sess_data['username'] = substr($row, strlen("username="));
+                if (strpos($row, "passwd=") === 0) $da_sess_data['passwd'] = substr($row, strlen("passwd="));
             }
         }
 
@@ -104,7 +108,6 @@ else
             }
             else
             {
-                // Password is empty - a hacking attempt?
                 $is_error = true;
                 $error_code = "PHPPGADMIN_120";
             }
@@ -128,7 +131,6 @@ else
     }
     else
     {
-        // Not authorized in DirectAdmin, or a hacking attempt
         $is_error = true;
         $error_code = "PHPPGADMIN_130";
     }
@@ -141,7 +143,7 @@ if ($is_error)
 {
     if (!$error_message) $error_message = $da->get_lang('ERROR_MESSAGE_FAILED_PHPPGADMIN');
     if (!$error_details) $error_details = $da->get_lang('ERROR_DETAILS_FAILED_PHPPGADMIN');
-    if (isset($error_code) && $error_code) $error_details .= "<br><br>Error code: ". $error_code;
+    if (isset($error_code) && $error_code) $error_details .= "<br><br>Error code: ". h($error_code);
 }
 else
 {

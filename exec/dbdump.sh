@@ -62,7 +62,7 @@ do_dump()
     export PGHOST="${dbhost}";
     export PGPORT="${dbport}";
     export PGDATABASE="${1}";
-    ${DUMP_BIN} --inserts -c -f "${TMPDIR}/${1}.sql";
+    ${DUMP_BIN} --no-owner --no-privileges --clean --if-exists --inserts -f "${TMPDIR}/${1}.sql";
     if [ -f "${TMPDIR}/${1}.sql" ];
     then
         if [ "0" == "${GZIP}" ]; 
@@ -82,6 +82,7 @@ DBCONF="/usr/local/directadmin/plugins/postgresql/pgpass.conf";
 # ======================================================================================================== #
 
 [ -n "${dbname}" ] || usage;
+pg_ident_ok "${dbname}" || die "Invalid database name" 2;
 [ -f "${DBCONF}" ] || die "Could not find user conf" 1;
 
 dbhost=$(awk -F: '{print $1}' "${DBCONF}");

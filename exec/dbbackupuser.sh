@@ -60,6 +60,7 @@ DBCONF="/usr/local/directadmin/plugins/postgresql/pgpass.conf";
 
 [ -n "${da_user}" ] || usage;
 [ -n "${dbdump_dir}" ] || usage;
+pg_ident_ok "${da_user}" || die "Invalid DirectAdmin username" 2;
 [ -f "${DBCONF}" ] || die "Could not find user conf" 1;
 
 dbhost=$(awk -F: '{print $1}' "${DBCONF}");
@@ -110,9 +111,12 @@ touch "${DB_GRANTS_FILE}" "${DB_USERS_FILE}";
 chmod 400 "${DB_GRANTS_FILE}" "${DB_USERS_FILE}";
 
 # GET LIST OF ALL DATABASES OWNED BY DIRECTADMIN USER
-for DB in $(${PSQL_BIN} -tc "SELECT datname FROM pg_catalog.pg_database WHERE datname = '${da_user}' OR datname LIKE '${da_user}_%';" 2>/dev/null | xargs);
+DA_LIT=$(sql_lit "${da_user}");
+DA_LIKE=$(sql_lit "${da_user}_%");
+for DB in $(${PSQL_BIN} -tAc "SELECT datname FROM pg_catalog.pg_database WHERE datname = ${DA_LIT} OR datname LIKE ${DA_LIKE};" 2>/dev/null);
 do
 {
+    pg_ident_ok "${DB}" || continue;
     # CREATE A DUMP OF A DATABASE
     de "[DB] Dumping ${DB} in ${dbdump_dir}";
     /usr/local/directadmin/plugins/postgresql/exec/dbdump.sh "${DB}" "${dbdump_dir}";
@@ -123,12 +127,13 @@ do
     touch "${DB_CONF_FILE}";
     chmod 400 "${DB_CONF_FILE}";
 
-    # GET THE DATABASE OWNER
-    OWNER=$(${PSQL_BIN} -tc "SELECT pg_catalog.pg_get_userbyid(d.datdba) as "Owner" FROM pg_catalog.pg_database d WHERE d.datname='${DB}';" 2>/dev/null | xargs); #"
+    # GET THE DATABASE OWNER (do not quote the alias inside bash double-quotes)
+    DB_LIT=$(sql_lit "${DB}");
+    OWNER=$(${PSQL_BIN} -tAc "SELECT pg_catalog.pg_get_userbyid(d.datdba) FROM pg_catalog.pg_database d WHERE d.datname=${DB_LIT};" 2>/dev/null | xargs);
     echo "owner=${OWNER}" >> "${DB_CONF_FILE}";
 
     # GET LIST OF USERS ALLOWED TO CONNECT TO THE DATABASE
-    for ROW in $("${PSQL_BIN}" -tc "SELECT datacl AS acl FROM pg_catalog.pg_database WHERE datname='"${DB}"';" | xargs | cut -d{ -f2 | cut -d} -f1);
+    for ROW in $("${PSQL_BIN}" -tAc "SELECT datacl FROM pg_catalog.pg_database WHERE datname=${DB_LIT};" | xargs | cut -d{ -f2 | cut -d} -f1);
     do
     {
         OIFS="${IFS}";
@@ -138,13 +143,13 @@ do
         do
         {
             ROLE=$(echo "${i}" | cut -d= -f1);
-            if [ -n "${ROLE}" ];
+            if [ -n "${ROLE}" ] && pg_ident_ok "${ROLE}";
             then
             {
                 de "[ROLE] Found role ${ROLE} to have priveleges on database ${DB}. Dumping...";
-                egrep " ${ROLE}( |;)" "${TEMP_FILE}" | egrep "^(CREATE|ALTER)" >> "${DB_USERS_FILE}";
+                grep -E " ${ROLE}( |;)" "${TEMP_FILE}" | grep -E "^(CREATE|ALTER)" >> "${DB_USERS_FILE}";
                 echo "GRANT ALL PRIVILEGES ON DATABASE ${DB} TO ${ROLE};" >> "${DB_GRANTS_FILE}";
-                egrep " ${ROLE}( |;)" "${TEMP_FILE}" | grep "^GRANT" >> "${DB_GRANTS_FILE}";
+                grep -E " ${ROLE}( |;)" "${TEMP_FILE}" | grep "^GRANT" >> "${DB_GRANTS_FILE}";
             }
             fi;
         }

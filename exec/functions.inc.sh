@@ -1,15 +1,7 @@
 #!/bin/bash
 ######################################################################################
 #
-#   Postgresql integration for DirectAdmin $ 0.2
-#   ==============================================================================
-#          Last modified: Mon Feb 10 12:44:48 +07 2020
-#   ==============================================================================
-#         Written by Alex Grebenschikov, Poralix, www.poralix.com
-#         Copyright 2022 by Alex Grebenschikov, Poralix, www.poralix.com
-#   ==============================================================================
-#         Distributed under Apache License Version 2.0, January 2004
-#                                          http://www.apache.org/licenses/
+#   Postgresql integration for DirectAdmin $ 0.3.0
 #
 ######################################################################################
 
@@ -33,3 +25,16 @@ die()
     exit "${2}";
 }
 
+# DirectAdmin usernames / PG identifiers: letters, digits, underscore
+pg_ident_ok()
+{
+    echo "${1}" | grep -Eq '^[A-Za-z_][A-Za-z0-9_]*$'
+}
+
+sql_lit()
+{
+    # single-quote a literal for SQL (identifiers should use pg_ident_ok instead)
+    local v="${1}";
+    v=${v//\'/\'\'};
+    printf "'%s'" "${v}";
+}

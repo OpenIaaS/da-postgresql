@@ -80,8 +80,8 @@ validate_filename()
     [ "0" == "${c}" ] && die "Filename ${1} should end on tar.gz or tar.zst. Terminating..." 30;
     de "Filename validated: ${1} - OK";
 
-    c=$(file -i "${1}" | grep -c ' application/x-gzip\|x-zstd;');
-    [ "0" == "${c}" ] && die "Filename ${1} should be of a tar.gz format (mime application/x-gzip) or a tar.zst format (mime application/x-zstd). Terminating..." 31;
+    c=$(file -i "${1}" | grep -c 'gzip\|zstd\|x-tar');
+    [ "0" == "${c}" ] && die "Filename ${1} should be of a tar.gz format (gzip) or a tar.zst format (zstd). Terminating..." 31;
     de "File mime type validated: ${1} - OK";
 }
 
@@ -126,6 +126,10 @@ detect_backup_type()
 # $2 - username
 validate_db_owner()
 {
+    if [ "${1}" = "${2}" ]; then
+        echo 1;
+        return;
+    fi;
     echo "${1}" | grep -c -m1 "^${2}_";
 }
 

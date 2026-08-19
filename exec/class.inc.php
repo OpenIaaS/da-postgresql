@@ -1,11 +1,13 @@
 <?php
 ######################################################################################
 #
-#   Postgresql integration for DirectAdmin $ 0.2
+#   Postgresql integration for DirectAdmin $ 0.3.0
 #   ==============================================================================
-#          Last modified: Mon Feb 10 12:44:48 +07 2020
+#          PHP 8.2 / 8.3 / 8.4 compatible fork
+#          Based on Poralix da-postgresql 0.2.1
 #   ==============================================================================
 #         Written by Alex Grebenschikov, Poralix, www.poralix.com
+#         Maintained by OpenIaaS (https://github.com/OpenIaaS/da-postgresql)
 #         Copyright 2022 by Alex Grebenschikov, Poralix, www.poralix.com
 #   ==============================================================================
 #         Distributed under Apache License Version 2.0, January 2004
@@ -34,15 +36,13 @@ class da
     private $_USER_DOMAINS_FILE="";
     private $_USER_DOMAINS=array();
     private $_EXEC_LEVEL;
+    private $_DA_CONF=array();
 
     function __construct()
     {
-        // Init username and define _USER_CONF_FILE
         $this->_init_user();
-        // Load data from user.conf
         $this->_USER_CONF=$this->_load_conf_data($this->_USER_CONF_FILE);
         $this->_LANG=$this->_load_language();
-        //$this->_DA_CONF=$this->_load_da_conf();
     }
 
     public function get_username()
@@ -87,7 +87,10 @@ class da
 
     public function get_conf($search)
     {
-        return (isset($this->_CONF_CUSTOM[$search])) ? $this->_CONF_CUSTOM[$search] : $this->_CONF[$search];
+        if (isset($this->_CONF_CUSTOM[$search])) {
+            return $this->_CONF_CUSTOM[$search];
+        }
+        return isset($this->_CONF[$search]) ? $this->_CONF[$search] : null;
     }
 
     public function get_confs()
@@ -107,24 +110,22 @@ class da
 
     public function get_da_conf($search)
     {
-        if (!isset($this->_DA_CONF) || !is_array($this->_DA_CONF))
+        if (!isset($this->_DA_CONF) || !is_array($this->_DA_CONF) || !$this->_DA_CONF)
         {
-            $this->_DA_CONF=$this->_load_da_conf();
+            $loaded=$this->_load_da_conf();
+            $this->_DA_CONF = is_array($loaded) ? $loaded : array();
         }
         return (isset($this->_DA_CONF[$search])) ? $this->_DA_CONF[$search] : false;
     }
 
     public function da_send_message($subject,$message)
     {
-        // As of Directadmin version v.1.51.5+ we can message a specific
-        // account with the task.queue
-        // =================================================================
         $action="notify";
         $user=$this->get_username();
-        $subject=urlencode(htmlspecialchars($subject));
-        $message=urlencode(htmlspecialchars($message));
+        $subject=urlencode(htmlspecialchars((string)$subject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        $message=urlencode(htmlspecialchars((string)$message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
 
-        $content = "action=${action}&value=users&users=select1%3D${user}&subject=${subject}&message=${message}\n";
+        $content = "action={$action}&value=users&users=select1%3D{$user}&subject={$subject}&message={$message}\n";
         $file = '/usr/local/directadmin/data/task.queue.cb';
         return file_put_contents($file, $content);
     }
@@ -141,64 +142,61 @@ class da
         return $content;
     }
 
-    // ===============================
-    // Function to parse data
-    // ===============================
     private function _load_conf_data($file)
     {
         $data=array();
-        if (is_file($file)){$data=parse_ini_file($file,false,INI_SCANNER_RAW);}
+        if (is_file($file)){
+            $parsed=@parse_ini_file($file,false,INI_SCANNER_RAW);
+            if (is_array($parsed)) {
+                $data=$parsed;
+            }
+        }
         return $data;
     }
 
-    // ===============================
-    // Function to read Directadmin configs
-    // ===============================
     private function _load_da_conf()
     {
         $_da_conf = array();
         if (function_exists('exec') && is_file($this->DACONF_BIN))
         {
-            if (exec($this->DACONF_BIN . " | sort", $out, $res))
+            $out = array();
+            $res = 1;
+            exec($this->DACONF_BIN . " | sort", $out, $res);
+            if (($res === 0) && (is_array($out)))
             {
-                if (($res === 0) && (is_array($out)))
+                foreach($out as $row)
                 {
-                    foreach($out as $row)
+                    if (strpos($row, "=") !== false)
                     {
-                        if (strpos($row, "=") !== false)
-                        {
-                            list($key, $val) = explode("=", $row);
+                        $parts = explode("=", $row, 2);
+                        $key = isset($parts[0]) ? $parts[0] : '';
+                        $val = isset($parts[1]) ? $parts[1] : '';
+                        if ($key !== '') {
                             $_da_conf[$key] = $val;
                         }
                     }
-                    return $_da_conf;
                 }
+                return $_da_conf;
             }
         }
         return false;
     }
 
-    // ===============================
-    // Function to init user
-    // ===============================
     private function _init_user()
     {
         $this->_USERNAME=(isset($_SERVER['USER']) && $_SERVER['USER']) ? $_SERVER['USER'] : false;
-        $this->_USER_CONF_FILE="/usr/local/directadmin/data/users/".$this->_USERNAME."/user.conf";
-        $this->_USER_DOMAINS_FILE="/usr/local/directadmin/data/users/".$this->_USERNAME."/domains.list";
+        $user = $this->_USERNAME ? $this->_USERNAME : '';
+        $this->_USER_CONF_FILE="/usr/local/directadmin/data/users/".$user."/user.conf";
+        $this->_USER_DOMAINS_FILE="/usr/local/directadmin/data/users/".$user."/domains.list";
         return ($this->_USERNAME) ? true : false;
     }
 
-    // ===============================
-    // Function to load default and
-    // user language files
-    // ===============================
     private function _load_language($force_lang=false)
     {
         $DEFAULT_LANG=array();
         $USER_LANG=array();
         $DEFAULT_LANG=$this->_load_conf_data(PLUGIN_LANG_DIR."/lang_en.php");
-        $selected_lang=($force_lang !== false) ? strtolower($force_lang) : strtolower($_SERVER["LANGUAGE"]);
+        $selected_lang=($force_lang !== false) ? strtolower((string)$force_lang) : plugin_da_language();
         if ($selected_lang != "en") {
             $USER_LANG=$this->_load_conf_data(PLUGIN_LANG_DIR."/lang_".$selected_lang.".php");
         }

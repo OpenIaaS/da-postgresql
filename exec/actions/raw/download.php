@@ -27,14 +27,26 @@ if ($pg_user_databases = $pg->getDatabasesList($USER))
     }
     if (in_array($database, $databases))
     {
-        $tmp_dir = sys_get_temp_dir() or '/tmp';
-        $file = tempnam($tmp_dir, $database.'.temp');
+        $tmp_dir = sys_get_temp_dir();
+        if ($tmp_dir === '' || $tmp_dir === false) {
+            $tmp_dir = '/tmp';
+        }
+        $file = tempnam($tmp_dir, 'pgdump_');
+        if ($file === false) {
+            $is_error = true;
+            $error_message = $da->get_lang('ERROR_MESSAGE_FAILED_DOWNLOAD');
+            $error_details = $da->get_lang('ERROR_DETAILS_FAILED_DOWNLOAD');
+        } else {
         putenv('PGPASSWORD=' . PG_PASSWORD);
         putenv('PGUSER=' . PG_USER);
         putenv('PGHOST=' . PG_HOST);
         putenv('PGPORT=' . PG_PORT);
         putenv('PGDATABASE=' . $database);
-        $cmd = '/usr/bin/pg_dump --dbname='.escapeshellarg($database).' --inserts -c | gzip > '. escapeshellarg($file);
+        $dump_bin = '/usr/bin/pg_dump';
+        foreach (array('/usr/pgsql-16/bin/pg_dump','/usr/pgsql-15/bin/pg_dump','/usr/pgsql-14/bin/pg_dump','/usr/local/bin/pg_dump','/usr/bin/pg_dump') as $cand) {
+            if (is_executable($cand)) { $dump_bin = $cand; break; }
+        }
+        $cmd = escapeshellcmd($dump_bin).' --dbname='.escapeshellarg($database).' --no-owner --no-privileges --clean --if-exists --inserts | gzip > '. escapeshellarg($file);
         @exec($cmd, $output, $rtval);
         if (is_file($file))
         {
@@ -46,11 +58,13 @@ if ($pg_user_databases = $pg->getDatabasesList($USER))
             print "Content-type: application/x-gzip\n\n";
             readfile($file);
             unlink($file);
+            putenv('PGPASSWORD');
             exit;
         }
         else
         {
             $is_error = true;
+        }
         }
     }
     else

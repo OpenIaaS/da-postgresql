@@ -101,13 +101,13 @@ do_process_file()
         "text/plain")
             do_import_plain "${1}";
             ;;
-        "application/octet-stream")
+        "application/octet-stream"|"application/sql"|"text/x-sql")
             do_import_plain "${1}";
             ;;
-        "application/x-tar")
+        "application/x-tar"|"application/tar")
             do_import_tar "${1}";
             ;;
-        "application/x-gzip")
+        "application/x-gzip"|"application/gzip"|"application/x-compressed-tar")
             do_import_gzip "${1}";
             ;;
         "application/zip")
@@ -198,6 +198,7 @@ do_import_directory()
 LOG_DIR="/usr/local/directadmin/plugins/postgresql/logs";
 LOG_FILE="${LOG_DIR}/restore.db.${dbname}.$(date +%Y%m%d.%s).log";
 MAX_TRIES=3
+TRY=0
 CUR_TRY=0
 TEMP_DIR="${TEMP_DIR:-/home/tmp/pgsql_restore}";
 DBCONF="${TEMP_DIR}/.${dbname}.pgpass.conf";
